@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Skeleton Lizard Cursor</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: #000;
+      overflow: hidden;
+      cursor: default !important; 
+    }
+    canvas {
+      display: block;
+      position: absolute;
+      top: 0;
+      left: 0;
+      pointer-events: none; 
+    }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    let width = canvas.width = window.innerWidth;
+    let height = canvas.height = window.innerHeight;
+    window.addEventListener('resize', () => {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    });
+    const mouse = { x: width / 2, y: height / 2 };
+    const head = { x: width / 2, y: height / 2 };
+    window.addEventListener('mousemove', e => { 
+      mouse.x = e.clientX; 
+      mouse.y = e.clientY; 
+    });
+    const NUM_SEGMENTS = 42;
+    const SEG_DIST = 8;
+    const segments = Array.from({ length: NUM_SEGMENTS }, () => ({ x: width / 2, y: height / 2, angle: 0 }));
+    const legIndices = [8, 16, 24, 32];
+    const legs = [];
+    legIndices.forEach((segIdx, i) => {
+      [-1, 1].forEach(side => {
+        legs.push({
+          segIdx: segIdx,
+          side: side, 
+          footX: width / 2,
+          footY: height / 2,
+          stepProgress: 1,
+          targetX: width / 2,
+          targetY: height / 2,
+          startX: width / 2,
+          startY: height / 2
+        });
+      });
+    });
+    function render() {
+      ctx.clearRect(0, 0, width, height);
+      head.x += (mouse.x - head.x) * 0.04;
+      head.y += (mouse.y - head.y) * 0.04;
+      let target = head;
+      segments.forEach((seg) => {
+        const dx = target.x - seg.x;
+        const dy = target.y - seg.y;
+        seg.angle = Math.atan2(dy, dx);
+        seg.x = target.x - Math.cos(seg.angle) * SEG_DIST;
+        seg.y = target.y - Math.sin(seg.angle) * SEG_DIST;
+        target = seg;
+      });
+      legs.forEach((leg) => {
+        const seg = segments[leg.segIdx];
+        const idealAngle = seg.angle + leg.side * (Math.PI / 2);
+        const idealX = seg.x + Math.cos(idealAngle) * 35;
+        const idealY = seg.y + Math.sin(idealAngle) * 35;
+        const distToIdeal = Math.hypot(idealX - leg.footX, idealY - leg.footY);
+
+        if (distToIdeal > 45 && leg.stepProgress >= 1) {
+          leg.stepProgress = 0;
+          leg.startX = leg.footX;
+          leg.startY = leg.footY;
+          leg.targetX = idealX + Math.cos(seg.angle) * 15;
+          leg.targetY = idealY + Math.sin(seg.angle) * 15;
+        }
+        if (leg.stepProgress < 1) {
+          leg.stepProgress += 0.12; // Adım hızı
+          const p = Math.min(1, leg.stepProgress);
+          leg.footX = leg.startX + (leg.targetX - leg.startX) * p;
+          leg.footY = leg.startY + (leg.targetY - leg.startY) * p;
+        }
+        const hipX = seg.x;
+        const hipY = seg.y;
+        const midX = (hipX + leg.footX) / 2 + Math.cos(seg.angle) * 10 * leg.side;
+        const midY = (hipY + leg.footY) / 2 + Math.sin(seg.angle) * 10 * leg.side;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.fillStyle = '#ffffff';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(hipX, hipY);
+        ctx.lineTo(midX, midY);
+        ctx.lineTo(leg.footX, leg.footY);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(midX, midY, 2, 0, Math.PI * 2);
+        ctx.fill();
+        for (let p = -1; p <= 1; p++) {
+          const clawAngle = seg.angle + (p * 0.4);
+          ctx.beginPath();
+          ctx.moveTo(leg.footX, leg.footY);
+          ctx.lineTo(leg.footX + Math.cos(clawAngle) * 6, leg.footY + Math.sin(clawAngle) * 6);
+          ctx.stroke();
+        }
+      });
+      segments.forEach((seg, i) => {
+        ctx.save();
+        ctx.translate(seg.x, seg.y);
+        ctx.rotate(seg.angle);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(-SEG_DIST, 0);
+        ctx.stroke();
+        if (i > 2) {
+          const progress = i / NUM_SEGMENTS;
+          const ribWidth = Math.max(2, Math.sin(progress * Math.PI) * 18);
+          ctx.beginPath();
+          ctx.arc(0, 0, ribWidth, -Math.PI / 2, Math.PI / 2, false);
+          ctx.stroke();
+        }
+        ctx.restore();
+      });
+      requestAnimationFrame(render);
+    }
+    render();
+  </script>
+</body>
+</html>
